@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Used Car Price Prediction & Showroom Comparison — India</title>
+  <meta name="description" content="Predict used car prices in India (INR / Lakhs) with side-by-side Showroom Price comparison and depreciation breakdown using Machine Learning." />
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>" />
+</head>
+<body>
+
+  <!-- Animated background -->
+  <div class="bg-grid"></div>
+  <div class="bg-effects">
+    <div class="bg-orb bg-orb--1"></div>
+    <div class="bg-orb bg-orb--2"></div>
+    <div class="bg-orb bg-orb--3"></div>
+  </div>
+
+  <main class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <span class="header__icon">🚗</span>
+      <h1 class="header__title">Car Price & Valuation Comparison</h1>
+      <p class="header__subtitle">Compare Brand-New Showroom Price vs Used Resale Value in Indian Rupees (₹)</p>
+    </header>
+
+    <!-- Quick Presets -->
+    <div class="presets">
+      <span class="presets__label">Quick Examples:</span>
+      <button type="button" class="preset-btn" onclick="applyPreset('Maruti', 2017, 48000, 'Diesel', 'Manual', 74, 9.5)">
+        Maruti Swift (2017)
+      </button>
+      <button type="button" class="preset-btn" onclick="applyPreset('Hyundai', 2019, 32000, 'Petrol', 'Manual', 113, 14.5)">
+        Hyundai Creta (2019)
+      </button>
+      <button type="button" class="preset-btn" onclick="applyPreset('Honda', 2016, 55000, 'Petrol', 'Automatic', 118, 12.0)">
+        Honda City (2016)
+      </button>
+    </div>
+
+    <!-- Prediction Card -->
+    <section class="card" id="prediction-card">
+      <form id="predict-form" class="form-grid" autocomplete="off">
+
+        <!-- 1. Brand -->
+        <div class="form-group">
+          <label class="form-label" for="brand">Car Brand</label>
+          <select class="form-select" id="brand" name="brand" required>
+            <option value="" disabled selected>Select brand</option>
+            {% for b in car_brands %}
+            <option value="{{ b }}" {% if b == 'Maruti' %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- 2. Manufacturing Year -->
+        <div class="form-group">
+          <label class="form-label" for="year">
+            Year of Purchase <span class="form-label__hint">(1995–2024)</span>
+          </label>
+          <input class="form-input" type="number" id="year" name="year"
+                 placeholder="e.g. 2017" min="1995" max="2024" step="1" value="2017" required />
+        </div>
+
+        <!-- 3. Kilometers Driven -->
+        <div class="form-group">
+          <label class="form-label" for="km_driven">
+            Kilometers Driven <span class="form-label__hint">(km)</span>
+          </label>
+          <input class="form-input" type="number" id="km_driven" name="km_driven"
+                 placeholder="e.g. 45000" min="500" max="1000000" step="500" value="48000" required />
+        </div>
+
+        <!-- 4. Fuel Type -->
+        <div class="form-group">
+          <label class="form-label" for="fuel">Fuel Type</label>
+          <select class="form-select" id="fuel" name="fuel" required>
+            {% for f in fuel_types %}
+            <option value="{{ f }}" {% if f == 'Diesel' %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- 5. Transmission -->
+        <div class="form-group">
+          <label class="form-label" for="transmission">Transmission</label>
+          <select class="form-select" id="transmission" name="transmission" required>
+            {% for t in transmissions %}
+            <option value="{{ t }}" {% if t == 'Manual' %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- 6. Engine Max Power -->
+        <div class="form-group">
+          <label class="form-label" for="max_power_bhp">
+            Engine Power <span class="form-label__hint">(bhp)</span>
+          </label>
+          <input class="form-input" type="number" id="max_power_bhp" name="max_power_bhp"
+                 placeholder="e.g. 74" min="30" max="600" step="1" value="74" required />
+        </div>
+
+        <!-- 7. Optional Showroom Price for Comparison -->
+        <div class="form-group form-group--full">
+          <label class="form-label" for="showroom_price_lakhs">
+            New Car Showroom Price <span class="form-label__hint">(Optional, ₹ in Lakhs — auto-estimated if blank)</span>
+          </label>
+          <input class="form-input" type="number" id="showroom_price_lakhs" name="showroom_price_lakhs"
+                 placeholder="e.g. 9.5 (leave blank for automatic market estimation)" min="1" max="250" step="0.1" />
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-group form-group--full">
+          <button type="submit" class="btn-predict" id="btn-predict">
+            <span class="btn-predict__text">
+              <span id="btn-label">Predict & Compare Prices</span>
+              <span class="spinner" id="spinner"></span>
+            </span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Comparison Result Display -->
+      <div class="result" id="result">
+        <p class="result__badge">📊 Price Comparison Analysis</p>
+
+        <!-- 3-Column Comparison Grid -->
+        <div class="comparison-grid">
+          <!-- Showroom / Original Price -->
+          <div class="comp-card comp-card--showroom">
+            <span class="comp-card__tag">Showroom Price (New)</span>
+            <p class="comp-card__value" id="comp-showroom-price">-</p>
+            <p class="comp-card__sub" id="comp-showroom-inr">-</p>
+          </div>
+
+          <!-- Resale Predicted Price (Hero) -->
+          <div class="comp-card comp-card--resale">
+            <span class="comp-card__tag comp-card__tag--highlight">Resale Value (Used)</span>
+            <p class="comp-card__value comp-card__value--hero" id="comp-resale-price">-</p>
+            <p class="comp-card__sub" id="comp-resale-inr">-</p>
+          </div>
+
+          <!-- Depreciation / Savings -->
+          <div class="comp-card comp-card--depreciation">
+            <span class="comp-card__tag">Depreciation / Savings</span>
+            <p class="comp-card__value comp-card__value--dep" id="comp-dep-price">-</p>
+            <p class="comp-card__sub" id="comp-dep-pct">-</p>
+          </div>
+        </div>
+
+        <!-- Value Retention Progress Bar -->
+        <div class="retention-section">
+          <div class="retention-header">
+            <span>Value Retained: <strong id="retention-pct-text">-%</strong></span>
+            <span>Depreciated: <strong id="depreciation-pct-text">-%</strong></span>
+          </div>
+          <div class="retention-bar-track">
+            <div class="retention-bar-fill" id="retention-bar-fill" style="width: 50%;"></div>
+          </div>
+        </div>
+
+        <p class="result__details" id="result-details"></p>
+      </div>
+
+      <!-- Error Display -->
+      <div class="result result--error" id="error">
+        <p class="result__error" id="error-message"></p>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="info-badge">
+        ⚡ Gradient Boosting Regressor (6 Features · R² = {{ model_r2 }})
+      </div>
+      <p class="footer__text" style="margin-top: 0.75rem;">
+        Dataset:
+        <a class="footer__link" href="https://www.kaggle.com/datasets/nehalbirla/vehicle-dataset-from-cardekho"
+           target="_blank" rel="noopener">
+          CarDekho Indian Used Cars (Kaggle)
+        </a>
+        · 6,786 Real Records · Prices in INR (₹)
+      </p>
+    </footer>
+
+  </main>
+
+  <script>
+    const form = document.getElementById('predict-form');
+    const btn = document.getElementById('btn-predict');
+    const btnLabel = document.getElementById('btn-label');
+    const spinner = document.getElementById('spinner');
+    const resultDiv = document.getElementById('result');
+    const errorDiv = document.getElementById('error');
+    const errorMsg = document.getElementById('error-message');
+
+    // Comparison Elements
+    const compShowroomPrice = document.getElementById('comp-showroom-price');
+    const compShowroomInr = document.getElementById('comp-showroom-inr');
+    const compResalePrice = document.getElementById('comp-resale-price');
+    const compResaleInr = document.getElementById('comp-resale-inr');
+    const compDepPrice = document.getElementById('comp-dep-price');
+    const compDepPct = document.getElementById('comp-dep-pct');
+    const retentionPctText = document.getElementById('retention-pct-text');
+    const depreciationPctText = document.getElementById('depreciation-pct-text');
+    const retentionBarFill = document.getElementById('retention-bar-fill');
+    const resultDetails = document.getElementById('result-details');
+
+    function applyPreset(brand, year, km, fuel, transmission, power, showroomLakhs) {
+      document.getElementById('brand').value = brand;
+      document.getElementById('year').value = year;
+      document.getElementById('km_driven').value = km;
+      document.getElementById('fuel').value = fuel;
+      document.getElementById('transmission').value = transmission;
+      document.getElementById('max_power_bhp').value = power;
+      document.getElementById('showroom_price_lakhs').value = showroomLakhs || '';
+      // Trigger submission
+      form.requestSubmit();
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      resultDiv.classList.remove('result--visible');
+      errorDiv.classList.remove('result--visible');
+
+      btn.disabled = true;
+      btnLabel.textContent = 'Comparing Valuations…';
+      spinner.classList.add('spinner--active');
+
+      const showroomVal = document.getElementById('showroom_price_lakhs').value;
+
+      const payload = {
+        brand: document.getElementById('brand').value,
+        year: parseInt(document.getElementById('year').value, 10),
+        km_driven: parseFloat(document.getElementById('km_driven').value),
+        fuel: document.getElementById('fuel').value,
+        transmission: document.getElementById('transmission').value,
+        max_power_bhp: parseFloat(document.getElementById('max_power_bhp').value),
+        showroom_price_lakhs: showroomVal ? parseFloat(showroomVal) : null,
+      };
+
+      try {
+        const res = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          // Fill Showroom Card
+          compShowroomPrice.textContent = data.formatted_showroom;
+          compShowroomInr.textContent = `(${data.formatted_showroom_inr})`;
+
+          // Fill Resale Card
+          compResalePrice.textContent = data.formatted_price;
+          compResaleInr.textContent = `(${data.formatted_inr})`;
+
+          // Fill Depreciation Card
+          compDepPrice.textContent = data.formatted_depreciation;
+          compDepPct.textContent = `-${data.depreciation_pct}% vs New`;
+
+          // Fill Retention Progress Bar
+          retentionPctText.textContent = `${data.retained_pct}%`;
+          depreciationPctText.textContent = `-${data.depreciation_pct}%`;
+          retentionBarFill.style.width = `${Math.min(100, Math.max(5, data.retained_pct))}%`;
+
+          // Vehicle Details
+          resultDetails.textContent = `${data.details} · Retains ${data.retained_pct}% original value`;
+
+          resultDiv.classList.add('result--visible');
+        } else {
+          errorMsg.textContent = `Error: ${data.error}`;
+          errorDiv.classList.add('result--visible');
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Could not connect to Flask server. Make sure python src/app.py is running.';
+        errorDiv.classList.add('result--visible');
+      } finally {
+        btn.disabled = false;
+        btnLabel.textContent = 'Predict & Compare Prices';
+        spinner.classList.remove('spinner--active');
+      }
+    });
+  </script>
+
+</body>
+</html>
